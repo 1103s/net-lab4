@@ -60,10 +60,13 @@ class Switch(NetDevice):
             # If there is no known route, flood
 
             if (send_port is None):
+                print("~~ FLOODING")
                 for port in self.ports_out:
                     self.send_q.put((port, in_msg))
+
 
             # otherwise forward single frame
 
             else:
+                print("@@ DIRECT")
                 self.send_q.put((send_port, in_msg))

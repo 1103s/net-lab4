@@ -70,6 +70,19 @@ class Node(NetDevice):
     def process_loop(self):
         while(True):
 
+            # Check to see if all messages are sent
+
+            self.send_dat = {k:v for k,v in
+                             self.send_dat.items()
+                             if not(v is None)}
+            if ((not self.send_dat) and (not self.exit)):
+                self.exit = True
+                print(f"-- NODE {self.node_id} FINISHED")
+            elif (not self.exit):
+                print(f"## {len(self.send_dat)}"
+                      f" REMAINING FOR"
+                      f" {self.node_id}")
+
             # Pull a message from a queue
 
             if (self.rcv_q.empty()):
@@ -88,7 +101,7 @@ class Node(NetDevice):
 
                 # Remove message from send buffer
 
-                print(f"|< ACK FOR {in_msg.data} NOTED")
+                print(f"|< ACK FOR '{in_msg.data}' NOTED")
                 tmp = self.send_dat[in_msg.ordering]
                 if (in_msg.data == tmp.data):
                     self.send_dat[in_msg.ordering] = None
@@ -117,7 +130,7 @@ class Node(NetDevice):
                     tmp = f"{sender}: {data}"
                     print(f">| DATA '{tmp}' RECORDED AT"
                           f" {self.node_id}")
-                    f.writelines([tmp])
+                    f.write(tmp + '\n')
 
                 # Make ack
 
@@ -127,14 +140,6 @@ class Node(NetDevice):
                 self.send_q.put(
                         (self.gateway_switch, in_msg))
 
-
-            # Check to see if all messages are sent
-
-            self.send_dat = {k:v for k,v in
-                             self.send_dat.items()
-                             if not(v is None)}
-            if (not self.send_dat):
-                self.exit = True
-                print(f"-- NODE {self.node_id} FINISHED")
             sleep(SLEEP_TIME)
+
 

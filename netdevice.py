@@ -135,6 +135,9 @@ class NetDevice():
                         else f"ACK:{new_msg.data}"
                 print(f"<< DELIVERED '{tmp}'"
                       f" VIA {port}")
+                if (new_msg.priority):
+                    print(f"!! PRIORITY PACKET FOUND"
+                           " MOVING TO FRONT!")
                 sleep(SLEEP_TIME)
 
     def process_loop(self):
