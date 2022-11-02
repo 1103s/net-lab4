@@ -1,7 +1,11 @@
 """
-Represents a device that can send messages.
-
+Contains all the features shared by the nodes and the switches.
+This includes send / recieve functionality, which is built
+on top of TCP/IP, although the statefull nature of TCP is
+intenionaly ignored as this would not be an accurate
+simulation of network switching communication.
 """
+
 import itertools as it
 from dataclasses import field, dataclass
 from queue import PriorityQueue
@@ -15,6 +19,24 @@ TCP_PORT_PREFIX = 1000
 
 @dataclass
 class NetDevice():
+    """
+    Represents a device that can send and recieve messages.
+
+    A NetDevice has three threads that are activated when
+    it is run. One for sending, one for reciving, and
+    one thread that is overwriten by nodes and switches to do
+    their respective processing.
+
+    Messages put on the send_q in a tuple of the format:
+        (port to send on, Msg object)
+    Will be placed on the rcv_q on the other end of the
+    specified port.
+
+    Msg objects with the priority flag set will
+    automatically be placed at the front fo th queue.
+
+    See msg.py for more info on that.
+    """
     ports_in: list
     ports_out: list
     send_q: PriorityQueue = field(
@@ -23,30 +45,58 @@ class NetDevice():
             default_factory=PriorityQueue)
 
     def send_loop(self):
+        """
+        This function will be run as a background thread
+        sending any messages added to send_q.
+        """
+
+        # Pull a message of the queue
+
         while (True):
             sleep(SLEEP_TIME)
             if(self.send_q.empty()):
                 continue
-
             next_hop, msg  = self.send_q.get()
 
+            # Can not send on a port that is not attached
+
             if(next_hop not in self.ports_out):
-                exit(4)
+                raise Exception(
+                        f"Can not send to port {next_hop}")
+
+
+            # Create TCP/IP socket and send
 
             next_sock = socket.socket(socket.AF_INET,
                                         socket.SOCK_STREAM)
             next_port = next_hop + TCP_PORT_PREFIX
-
+            tmp = msg.data if (msg.size) else "ACK"
             try:
                 next_sock.connect(("", next_port))
                 next_sock.sendall(dumps(msg))
             except Exception as e:
+
+                # If sending fails, put msg back on queue
+
+                print(f"-- MSG '{tmp}'"
+                      f" TO {msg.dest}"
+                      f" VIA {next_hop} IS DELAYED")
                 self.send_q.put((next_hop, msg))
             else:
                 break
+
+            print(f">> {msg.src} SENDS '{tmp}' TO {msg.dest}"
+                  f" VIA {next_hop}")
+
+
             next_sock.close()
 
     def listen(self):
+        """
+        Start Listening ports for incoming messages.
+
+        NOTE: must be closed latter.
+        """
         self.sockets_in = []
         for port in self.ports_in:
             tmp = socket.socket(socket.AF_INET,
@@ -56,10 +106,15 @@ class NetDevice():
             try:
                 tmp.bind(("", my_tcp))
             except Exception as e:
-                exit(2)
+                raise Exception('Can not bind to port!')
             tmp.listen()
 
     def recieve_loop(self):
+        """
+        On an indepenednt thread, recieve messages via TCP/IP
+        and add them to the rcv_q for processing by another
+        thread.
+        """
         while(True):
             for port, socket in self.sockets_in:
                 tmp = socket.accept()
@@ -68,12 +123,22 @@ class NetDevice():
                 new_msg = loads(data)
                 self.rcv_q.put((port, new_msg))
                 clientsocket.close()
+                tmp = new_msg.data if (new_msg.size) else "ACK"
+                print(f"<< DELIVERED '{tmp}'"
+                      f" VIA {port}")
                 sleep(SLEEP_TIME)
 
     def process_loop(self):
+        """
+        The third thread to process frames on rcv_q.
+        To be implemented in children.
+        """
         ...
 
     def start_device(self):
+        """
+        Start the above defined functions as threads.
+        """
         self.listen()
         self.jobs = [
                 t.Thread(target=self.recieve_loop,

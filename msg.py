@@ -4,7 +4,7 @@ Flows the folowing fomrat:
   - src → HAC
   - dest → HAC
   - SIZE/ACK
-  - ordering → reassembly order
+  - ordering → reassembly order (NOT USED)
   - priority
   - data
 """
