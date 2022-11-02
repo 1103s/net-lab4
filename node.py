@@ -6,12 +6,14 @@ from netdevice import SLEEP_TIME, NetDevice
 from itertools import count
 from msg import Msg
 import re
+import random as r
 
 TOP_NODE = count(1)
 
 class Node(NetDevice):
     def __init__(self, switch_in: int,
-                 switch_out: int) -> None:
+                 switch_out: int,
+                 priority=False) -> None:
         super().__init__([switch_in], [switch_out])
         self.node_id = next(TOP_NODE)
         self.router = switch_in
@@ -29,9 +31,13 @@ class Node(NetDevice):
             m = re.match(r"(.*): (.*)", x)
             if (m is None):
                 exit(3)
+            pri = 0
+            if (priority):
+                pri = r.randint(0,1)
+
             tmp = Msg(m[1], self.node_id,
                       len(m[2]), next(m_count),
-                      0, m[2])
+                      pri, m[2])
             self.send_dat[tmp.ordering] = tmp
             self.send_q.put((switch_in, tmp))
 
