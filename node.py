@@ -26,7 +26,7 @@ class Node(NetDevice):
         # Setup node variables
 
         self.node_id = next(TOP_NODE)
-        self.router = switch_in
+        self.gateway_switch = switch_out
         send_dat = []
         m_count = count()
         self.send_dat = {}
@@ -43,10 +43,12 @@ class Node(NetDevice):
 
         # Extract data that needs to tbe sent from node file
 
+        if (not send_dat):
+            self.exit = True
         for x in send_dat:
             m = re.match(r"(.*): (.*)", x)
             if (m is None):
-                exit(3)
+                raise Exception("Malformed Node File!")
 
             # If priority is enabled, randomly
             # give frames priority
@@ -57,13 +59,13 @@ class Node(NetDevice):
 
             # Add messages to send queue
 
-            tmp = Msg(m[1], self.node_id,
+            tmp = Msg(pri, self.node_id, int(m[1]),
                       len(m[2]), next(m_count),
-                      pri, m[2])
+                      m[2])
             self.send_dat[tmp.ordering] = tmp
-            self.send_q.put((switch_in, tmp))
+            self.send_q.put((switch_out, tmp))
 
-        print(f"NODE CREATED: \n {self} \n")
+        print(f"NODE #{self.node_id} CREATED: \n {self} \n")
 
     def process_loop(self):
         while(True):
@@ -123,7 +125,7 @@ class Node(NetDevice):
                 in_msg.dest = sender
                 in_msg.size = 0
                 self.send_q.put(
-                        (self.router, in_msg))
+                        (self.gateway_switch, in_msg))
 
 
             # Check to see if all messages are sent

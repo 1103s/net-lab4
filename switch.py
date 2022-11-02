@@ -19,6 +19,10 @@ class Switch(NetDevice):
         # Twos tables are actualy used since
         # the connecions are simplex
 
+        self.in_st = dict()
+        self.out_st = dict()
+        self.ito = dict()
+        self.oti = dict()
         for i, o in zip(ports_in, ports_out):
             self.in_st[i] = list()
             self.out_st[o] = list()
@@ -44,22 +48,11 @@ class Switch(NetDevice):
             tmp_in.append(in_msg.src)
             tmp_out.append(in_msg.src)
 
-            # If HAC was already associated with a port,
-            # move it
-
-            for i, o in zip(self.tmp_in.values(),
-                             self.tmp_out.values()):
-                if (i != tmp_in):
-                    i.remove(in_msg.src)
-                if (o != tmp_out):
-                    o.remove(in_msg.src)
-
-
             # Find port to forward frame to the requested HAC
 
             dest = in_msg.dest
             send_port = None
-            for k, o in self.tmp_out.items():
+            for k, o in self.out_st.items():
                 if (dest in o):
                     send_port = k
                     break

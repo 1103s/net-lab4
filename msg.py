@@ -4,7 +4,7 @@ Flows the folowing fomrat:
   - src → HAC
   - dest → HAC
   - SIZE/ACK
-  - ordering → reassembly order (NOT USED)
+  - ordering → check order
   - priority
   - data
 """
@@ -44,7 +44,7 @@ def loads(msg: bytes) -> Msg:
     ordering = msg[3]
     priority = msg[4]
     data = msg[5:].decode("utf-8")
-    ret = Msg(src, dest, size, ordering, priority, data)
+    ret = Msg(priority, src, dest, size, ordering, data)
     return ret
 
 

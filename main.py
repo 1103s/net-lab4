@@ -40,8 +40,8 @@ class Main():
 
         # Connect nodes via switch
 
-        tmp_in = [x[0] for x in self.node_ports]
-        tmp_out = [x[1] for x in self.node_ports]
+        tmp_out = [x[0] for x in self.node_ports]
+        tmp_in = [x[1] for x in self.node_ports]
         self.switches = []
         tmp = s.Switch(tmp_in, tmp_out)
         self.switches.append(tmp)
@@ -69,7 +69,8 @@ class Main():
 
         print(f"SHUTING DOWN THREADS")
         for dev in [*self.nodes, *self.switches]:
-            dev.listen_socket.close()
+            for soc in dev.sockets_in:
+                soc[1].close()
 
 class ExtraCredit1(Main):
     """
@@ -97,8 +98,8 @@ class ExtraCredit1(Main):
 
         # set backbone conections
 
-        tmp_in = [x[0] for x in self.node_ports]
-        tmp_out = [x[1] for x in self.node_ports]
+        tmp_out = [x[0] for x in self.node_ports]
+        tmp_in = [x[1] for x in self.node_ports]
         backbone_in = num_nodes * 2
         backbone_out = (num_nodes * 2) + 1
 
@@ -108,8 +109,8 @@ class ExtraCredit1(Main):
         tmp = s.Switch([*tmp_in[:num_nodes/2], backbone_in],
                        [*tmp_out[:num_nodes/2], backbone_out])
         self.switches.append(tmp)
-        tmp = s.Switch([*tmp_in[num_nodes/2:], backbone_in],
-                       [*tmp_out[num_nodes/2:], backbone_out])
+        tmp = s.Switch([*tmp_in[num_nodes/2:], backbone_out],
+                       [*tmp_out[num_nodes/2:], backbone_in])
         self.switches.append(tmp)
 
 
@@ -139,8 +140,8 @@ class ExtraCredit2(Main):
 
         # set up backbone ports
 
-        tmp_in = [x[0] for x in self.node_ports]
-        tmp_out = [x[1] for x in self.node_ports]
+        tmp_out = [x[0] for x in self.node_ports]
+        tmp_in = [x[1] for x in self.node_ports]
         backbone_in_left = num_nodes * 2
         backbone_out_left = (num_nodes * 2) + 1
         backbone_in_right = (num_nodes * 2) + 2
@@ -159,8 +160,8 @@ class ExtraCredit2(Main):
                        [*tmp_out[num_nodes/2:],
                         backbone_out_right])
         self.switches.append(tmp)
-        tmp = s.Switch([backbone_in_right, backbone_in_left],
-                [backbone_out_right, backbone_out_left])
+        tmp = s.Switch([backbone_out_right, backbone_out_left],
+                [backbone_in_right, backbone_in_right])
         self.switches.append(tmp)
 
 
@@ -187,8 +188,8 @@ class ExtraCredit3(Main):
 
         # set up swithces
 
-        tmp_in = [x[0] for x in self.node_ports]
-        tmp_out = [x[1] for x in self.node_ports]
+        tmp_out = [x[0] for x in self.node_ports]
+        tmp_in = [x[1] for x in self.node_ports]
         self.switches = []
         tmp = s.Switch(tmp_in, tmp_out)
         self.switches.append(tmp)
@@ -201,10 +202,9 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(
             description=__doc__)
-    parser.add_argument('Nodes',
+    parser.add_argument('nodes',
                         metavar='N',
                         type=int,
-                        nargs='+',
                         help='Number of nodes (max 255) used.')
     parser.add_argument('--backbone',
                         action='store_true',
@@ -217,7 +217,7 @@ if __name__ == '__main__':
                         help='Use priority messages.')
     args = parser.parse_args()
     if ((args.nodes > 255) or (args.nodes <= 0)):
-        exit(6)
+        raise Exception("N out of range!")
 
     # set up sim env
 

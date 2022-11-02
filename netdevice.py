@@ -14,8 +14,8 @@ import socket
 from msg import dumps, loads
 import threading as t
 
-SLEEP_TIME = 2
-TCP_PORT_PREFIX = 1000
+SLEEP_TIME = 1 # How long to wait in sec between loops
+TCP_PORT_PREFIX = 550
 
 @dataclass
 class NetDevice():
@@ -40,9 +40,11 @@ class NetDevice():
     ports_in: list
     ports_out: list
     send_q: PriorityQueue = field(
-            default_factory=PriorityQueue)
+            default_factory=PriorityQueue,
+            repr=False)
     rcv_q: PriorityQueue = field(
-            default_factory=PriorityQueue)
+            default_factory=PriorityQueue,
+            repr=False)
 
     def send_loop(self):
         """
@@ -70,7 +72,8 @@ class NetDevice():
             next_sock = socket.socket(socket.AF_INET,
                                         socket.SOCK_STREAM)
             next_port = next_hop + TCP_PORT_PREFIX
-            tmp = msg.data if (msg.size) else "ACK"
+            tmp = msg.data if (msg.size) else \
+                    f"ACK:{msg.data}"
             try:
                 next_sock.connect(("", next_port))
                 next_sock.sendall(dumps(msg))
@@ -82,8 +85,7 @@ class NetDevice():
                       f" TO {msg.dest}"
                       f" VIA {next_hop} IS DELAYED")
                 self.send_q.put((next_hop, msg))
-            else:
-                break
+                continue
 
             print(f">> {msg.src} SENDS '{tmp}' TO {msg.dest}"
                   f" VIA {next_hop}")
@@ -106,7 +108,7 @@ class NetDevice():
             try:
                 tmp.bind(("", my_tcp))
             except Exception as e:
-                raise Exception('Can not bind to port!')
+                raise Exception(f'BAD PORT {my_tcp}! {e}')
             tmp.listen()
 
     def recieve_loop(self):
@@ -117,13 +119,20 @@ class NetDevice():
         """
         while(True):
             for port, socket in self.sockets_in:
-                tmp = socket.accept()
-                clientsocket = tmp[1]
-                data = clientsocket.recv(255).decode("utf-8")
+                tmp = tuple()
+                try:
+                    tmp = socket.accept()
+                except Exception as e:
+                    continue
+                clientsocket = tmp[0]
+                data = clientsocket.recv(255)
+                if (not data):
+                    continue
                 new_msg = loads(data)
                 self.rcv_q.put((port, new_msg))
                 clientsocket.close()
-                tmp = new_msg.data if (new_msg.size) else "ACK"
+                tmp = new_msg.data if (new_msg.size) \
+                        else f"ACK:{new_msg.data}"
                 print(f"<< DELIVERED '{tmp}'"
                       f" VIA {port}")
                 sleep(SLEEP_TIME)
@@ -142,11 +151,11 @@ class NetDevice():
         self.listen()
         self.jobs = [
                 t.Thread(target=self.recieve_loop,
-                              args=(self,)),
+                         daemon=True),
                 t.Thread(target=self.send_loop,
-                              args=(self,)),
+                         daemon=True),
                 t.Thread(target=self.process_loop,
-                              args=(self,))
+                         daemon=True)
                 ]
         for job in self.jobs:
             job.start()
