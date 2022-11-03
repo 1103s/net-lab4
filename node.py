@@ -72,16 +72,18 @@ class Node(NetDevice):
 
             # Check to see if all messages are sent
 
+            self.send_dat_old = self.send_dat
             self.send_dat = {k:v for k,v in
                              self.send_dat.items()
                              if not(v is None)}
             if ((not self.send_dat) and (not self.exit)):
                 self.exit = True
                 print(f"-- NODE {self.node_id} FINISHED")
-            elif (not self.exit):
-                print(f"## {len(self.send_dat)}"
-                      f" REMAINING FOR"
-                      f" {self.node_id}")
+            elif ((not self.exit)
+                  and (self.send_dat_old != self.send_dat)):
+                print(f"## NODE {self.node_id}"
+                      f" WATING FOR"
+                      f" {len(self.send_dat)} ACKs.")
 
             # Pull a message from a queue
 
@@ -102,7 +104,9 @@ class Node(NetDevice):
                 # Remove message from send buffer
 
                 print(f"|< ACK FOR '{in_msg.data}' NOTED")
-                tmp = self.send_dat[in_msg.ordering]
+                tmp = self.send_dat.get(in_msg.ordering, None)
+                if (tmp is None):
+                    continue
                 if (in_msg.data == tmp.data):
                     self.send_dat[in_msg.ordering] = None
                 else:

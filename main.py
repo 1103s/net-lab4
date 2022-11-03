@@ -11,6 +11,7 @@ specified in the assignment.
 For further details, see the rest of the documentation.
 """
 
+from random import shuffle
 import threading as t
 from time import sleep
 from netdevice import SLEEP_TIME
@@ -51,9 +52,14 @@ class Main():
         Runs the simulation of the programed network.
         """
 
+        # Start devices in random order
+
+        devices = [*self.nodes, *self.switches]
+        shuffle(devices)
+
         # For each netdevice object start its threads
 
-        for dev in [*self.nodes, *self.switches]:
+        for dev in devices:
             dev.start_device()
 
         # Periodicly check to see if the threads are done
@@ -106,11 +112,11 @@ class ExtraCredit1(Main):
         # set up switches
 
         self.switches = []
-        tmp = s.Switch([*tmp_in[:num_nodes/2], backbone_in],
-                       [*tmp_out[:num_nodes/2], backbone_out])
+        tmp = s.Switch([*tmp_in[:num_nodes//2], backbone_in],
+                       [*tmp_out[:num_nodes//2], backbone_out])
         self.switches.append(tmp)
-        tmp = s.Switch([*tmp_in[num_nodes/2:], backbone_out],
-                       [*tmp_out[num_nodes/2:], backbone_in])
+        tmp = s.Switch([*tmp_in[num_nodes//2:], backbone_out],
+                       [*tmp_out[num_nodes//2:], backbone_in])
         self.switches.append(tmp)
 
 
@@ -150,18 +156,18 @@ class ExtraCredit2(Main):
         # Set up switches
 
         self.switches = []
-        tmp = s.Switch([*tmp_in[:num_nodes/2],
+        tmp = s.Switch([*tmp_in[:num_nodes//2],
                         backbone_in_left],
-                       [*tmp_out[:num_nodes/2],
+                       [*tmp_out[:num_nodes//2],
                         backbone_out_left])
         self.switches.append(tmp)
-        tmp = s.Switch([*tmp_in[num_nodes/2:],
+        tmp = s.Switch([*tmp_in[num_nodes//2:],
                         backbone_in_right],
-                       [*tmp_out[num_nodes/2:],
+                       [*tmp_out[num_nodes//2:],
                         backbone_out_right])
         self.switches.append(tmp)
         tmp = s.Switch([backbone_out_right, backbone_out_left],
-                [backbone_in_right, backbone_in_right])
+                [backbone_in_right, backbone_in_left])
         self.switches.append(tmp)
 
 

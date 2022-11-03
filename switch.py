@@ -5,7 +5,11 @@ These are not to be confused with the TCP ip
 ports that support them.
 """
 from netdevice import SLEEP_TIME, NetDevice
-from time import sleep
+from time import sleep, time
+
+# The amount of time to wait before clearing the ST
+
+ST_TIME = 8
 
 class Switch(NetDevice):
     """
@@ -23,12 +27,20 @@ class Switch(NetDevice):
         self.out_st = dict()
         self.ito = dict()
         self.oti = dict()
-        for i, o in zip(ports_in, ports_out):
+        self.cach_time = time() + (ST_TIME)
+        self.init_switching_table()
+        print(f"SWITCH CREATED: \n {self} \n")
+
+
+    def init_switching_table(self):
+        """
+        Creates a blank switching table
+        """
+        for i, o in zip(self.ports_in, self.ports_out):
             self.in_st[i] = list()
             self.out_st[o] = list()
             self.ito[i] = o
             self.oti[o] = i
-        print(f"SWITCH CREATED: \n {self} \n")
 
     def process_loop(self):
 
@@ -40,13 +52,29 @@ class Switch(NetDevice):
                 continue
             in_port, in_msg = self.rcv_q.get()
 
-            # Add inbound connection to the switching
-            # tables
+            # Calculate inbound tables
 
             tmp_in = self.in_st[in_port]
             tmp_out = self.out_st[self.ito[in_port]]
-            tmp_in.append(in_msg.src)
-            tmp_out.append(in_msg.src)
+
+            # Check to see if we have seen this message before
+
+            if (time() >= self.cach_time):
+                print("%% ST HAS EXPIRED"
+                      ", CLEARING ST")
+
+                # Wipe ST if time is up
+
+                self.cach_time = time() + (ST_TIME)
+                self.init_switching_table()
+
+            else:
+
+                # Add inbound connection to the switching
+                # tables
+
+                tmp_in.append(in_msg.src)
+                tmp_out.append(in_msg.src)
 
             # Find port to forward frame to the requested HAC
 
@@ -60,13 +88,18 @@ class Switch(NetDevice):
             # If there is no known route, flood
 
             if (send_port is None):
-                print("~~ FLOODING")
+                print("~~ SWITCH IS FLOODING")
                 for port in self.ports_out:
+
+                    # Dont send on input port
+
+                    if (port == in_port):
+                        continue
                     self.send_q.put((port, in_msg))
 
 
             # otherwise forward single frame
 
             else:
-                print("@@ DIRECT")
+                print("@@ SWITCH IS SENDING DIRECT")
                 self.send_q.put((send_port, in_msg))
