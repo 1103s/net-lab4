@@ -9,23 +9,20 @@ from msg import Msg
 import re
 import random as r
 
-
-# Keeps a total of the top HAC
-
-TOP_NODE = count(1)
-
 class Node(NetDevice):
     """
     Represents a node as described in the directions.
     """
     def __init__(self, switch_in: int,
                  switch_out: int,
+                 shac: str,
                  priority=False) -> None:
         super().__init__([switch_in], [switch_out])
 
         # Setup node variables
 
-        self.node_id = next(TOP_NODE)
+        self.shac = shac
+        self.node_id = self.to_hac(shac)
         self.gateway_switch = switch_out
         send_dat = []
         m_count = count()
@@ -35,9 +32,9 @@ class Node(NetDevice):
 
         # Setup node files
 
-        with open(f"node{self.node_id}.txt") as f:
+        with open(f"node{self.shac}.txt") as f:
             send_dat = f.readlines()
-        with open(f"node{self.node_id}output.txt",
+        with open(f"node{self.shac}output.txt",
                   "w") as f:
             f.write("")
 
@@ -50,6 +47,9 @@ class Node(NetDevice):
             if (m is None):
                 raise Exception("Malformed Node File!")
 
+            # Convert m to a hac
+            hac = self.to_hac(m[1])
+
             # If priority is enabled, randomly
             # give frames priority
 
@@ -59,8 +59,8 @@ class Node(NetDevice):
 
             # Add messages to send queue
 
-            tmp = Msg(pri, self.node_id, int(m[1]),
-                      len(m[2]), next(m_count),
+            tmp = Msg(pri, self.node_id, hac,
+                      len(m[2]), 0, next(m_count),
                       m[2])
             self.send_dat[tmp.ordering] = tmp
             self.send_q.put((switch_out, tmp))

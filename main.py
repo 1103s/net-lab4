@@ -11,6 +11,7 @@ specified in the assignment.
 For further details, see the rest of the documentation.
 """
 
+from itertools import cycle
 from random import shuffle
 import threading as t
 from time import sleep
@@ -18,6 +19,7 @@ from netdevice import SLEEP_TIME
 import switch as s
 import node as n
 import argparse
+import re
 
 class Main():
     """
@@ -26,25 +28,67 @@ class Main():
 
     def __init__(self, num_nodes: int) -> None:
 
-        # Setup ports for conections
+        # Check that the number of nodes can be devided
+
+        if (num_nodes % 2):
+            raise Exception("Number of nodes must be even.")
+
+        # Read firewall
+        global_blocks = list()
+        local_blocks = list()
+        with open("firewall.txt") as f:
+            rules = f.readlines()
+            for x in rules:
+                m = re.match(r"(.*): (.*)", x)
+                if (m is None):
+                    raise Exception("Malformed Node File!")
+                if ("#" in m[1]):
+                    shac = m[1].replace("#", "0")
+                    global_blocks.append(shac)
+                else:
+                    local_blocks.append(m[1])
+
+        # Set up ports
+        nets = cycle([1,2])
 
         self.node_ports = []
         for i in range(num_nodes):
-            self.node_ports.append((i, i + num_nodes))
+            self.node_ports.append((i, i + num_nodes,
+                                    f'{next(nets)}_{i}'))
+        print(self.node_ports)
 
-        # Setup nodes
+        # Set up nodes
 
         self.nodes = []
         for i in self.node_ports:
             tmp = n.Node(*i)
             self.nodes.append(tmp)
 
-        # Connect nodes via switch
+        # set up backbone ports
 
         tmp_out = [x[0] for x in self.node_ports]
         tmp_in = [x[1] for x in self.node_ports]
+        backbone_in_left = num_nodes * 2
+        backbone_out_left = (num_nodes * 2) + 1
+        backbone_in_right = (num_nodes * 2) + 2
+        backbone_out_right = (num_nodes * 2) + 3
+
+        # Set up switches
+
         self.switches = []
-        tmp = s.Switch(tmp_in, tmp_out)
+        tmp = s.Switch([*tmp_in[:num_nodes//2],
+                        backbone_in_left],
+                       [*tmp_out[:num_nodes//2],
+                        backbone_out_left])
+        self.switches.append(tmp)
+        tmp = s.Switch([*tmp_in[num_nodes//2:],
+                        backbone_in_right],
+                       [*tmp_out[num_nodes//2:],
+                        backbone_out_right])
+        self.switches.append(tmp)
+        tmp = s.Switch([backbone_out_right, backbone_out_left],
+                [backbone_in_right, backbone_in_left], global_blocks,
+                       local_blocks)
         self.switches.append(tmp)
 
     def run_sim(self):
@@ -78,129 +122,6 @@ class Main():
             for soc in dev.sockets_in:
                 soc[1].close()
 
-class ExtraCredit1(Main):
-    """
-    The extra-credit backbone network sim.
-    """
-    def __init__(self, num_nodes: int) -> None:
-
-        # Check that the number of nodes can be devided
-
-        if (num_nodes % 2):
-            raise Exception("Number of nodes must be even.")
-
-        # set up ports
-
-        self.node_ports = []
-        for i in range(num_nodes):
-            self.node_ports.append((i, i + num_nodes))
-
-        # set up nodes
-
-        self.nodes = []
-        for i in self.node_ports:
-            tmp = n.Node(*i)
-            self.nodes.append(tmp)
-
-        # set backbone conections
-
-        tmp_out = [x[0] for x in self.node_ports]
-        tmp_in = [x[1] for x in self.node_ports]
-        backbone_in = num_nodes * 2
-        backbone_out = (num_nodes * 2) + 1
-
-        # set up switches
-
-        self.switches = []
-        tmp = s.Switch([*tmp_in[:num_nodes//2], backbone_in],
-                       [*tmp_out[:num_nodes//2], backbone_out])
-        self.switches.append(tmp)
-        tmp = s.Switch([*tmp_in[num_nodes//2:], backbone_out],
-                       [*tmp_out[num_nodes//2:], backbone_in])
-        self.switches.append(tmp)
-
-
-class ExtraCredit2(Main):
-    """
-    The extra-credit star of star network sim.
-    """
-    def __init__(self, num_nodes: int) -> None:
-
-        # Check that the number of nodes can be devided
-
-        if (num_nodes % 2):
-            raise Exception("Number of nodes must be even.")
-
-        # Set up ports
-
-        self.node_ports = []
-        for i in range(num_nodes):
-            self.node_ports.append((i, i + num_nodes))
-
-        # Set up nodes
-
-        self.nodes = []
-        for i in self.node_ports:
-            tmp = n.Node(*i)
-            self.nodes.append(tmp)
-
-        # set up backbone ports
-
-        tmp_out = [x[0] for x in self.node_ports]
-        tmp_in = [x[1] for x in self.node_ports]
-        backbone_in_left = num_nodes * 2
-        backbone_out_left = (num_nodes * 2) + 1
-        backbone_in_right = (num_nodes * 2) + 2
-        backbone_out_right = (num_nodes * 2) + 3
-
-        # Set up switches
-
-        self.switches = []
-        tmp = s.Switch([*tmp_in[:num_nodes//2],
-                        backbone_in_left],
-                       [*tmp_out[:num_nodes//2],
-                        backbone_out_left])
-        self.switches.append(tmp)
-        tmp = s.Switch([*tmp_in[num_nodes//2:],
-                        backbone_in_right],
-                       [*tmp_out[num_nodes//2:],
-                        backbone_out_right])
-        self.switches.append(tmp)
-        tmp = s.Switch([backbone_out_right, backbone_out_left],
-                [backbone_in_right, backbone_in_left])
-        self.switches.append(tmp)
-
-
-class ExtraCredit3(Main):
-    """
-    The extra-credit network sim with priority packets.
-    """
-    def __init__(self, num_nodes: int) -> None:
-
-        # Set up ports
-
-        self.node_ports = []
-        for i in range(num_nodes):
-            self.node_ports.append((i, i + num_nodes))
-
-
-        # Set up nodes with priority enabled
-
-        self.nodes = []
-        for i in self.node_ports:
-            tmp = n.Node(*i, priority=True)
-            self.nodes.append(tmp)
-
-
-        # set up swithces
-
-        tmp_out = [x[0] for x in self.node_ports]
-        tmp_in = [x[1] for x in self.node_ports]
-        self.switches = []
-        tmp = s.Switch(tmp_in, tmp_out)
-        self.switches.append(tmp)
-
-
 if __name__ == '__main__':
 
     # Parse cmd line args
@@ -212,15 +133,6 @@ if __name__ == '__main__':
                         metavar='N',
                         type=int,
                         help='Number of nodes (max 255) used.')
-    parser.add_argument('--backbone',
-                        action='store_true',
-                        help='Use backbone switching.')
-    parser.add_argument('--star',
-                        action='store_true',
-                        help='Use star of star switching.')
-    parser.add_argument('--priority',
-                        action='store_true',
-                        help='Use priority messages.')
     args = parser.parse_args()
     if ((args.nodes > 255) or (args.nodes <= 0)):
         raise Exception("N out of range!")
@@ -229,14 +141,7 @@ if __name__ == '__main__':
 
     print(f"STARTING SIM")
     tmp = None
-    if (args.backbone):
-        tmp = ExtraCredit1(args.nodes)
-    elif (args.star):
-        tmp = ExtraCredit2(args.nodes)
-    elif (args.priority):
-        tmp = ExtraCredit3(args.nodes)
-    else:
-        tmp = Main(args.nodes)
+    tmp = Main(args.nodes)
 
     # run sim
 

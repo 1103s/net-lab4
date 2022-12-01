@@ -4,6 +4,7 @@ managed via simplex connections called ports.
 These are not to be confused with the TCP ip
 ports that support them.
 """
+from msg import Msg
 from netdevice import SLEEP_TIME, NetDevice
 from time import sleep, time
 
@@ -16,8 +17,10 @@ class Switch(NetDevice):
     Represents a switch as defined in the project.
     """
     def __init__(self, ports_in: list,
-                 ports_out: list) -> None:
-        super().__init__(ports_in, ports_out)
+                 ports_out: list, global_blocks: list = [],
+                 local_blocks: list = []) -> None:
+        self.do_firewall = True # Enable firewall
+        super().__init__(ports_in, ports_out, global_blocks)
 
         # Setus up the Switching table(s)
         # Twos tables are actualy used since
@@ -29,6 +32,14 @@ class Switch(NetDevice):
         self.oti = dict()
         self.cach_time = time() + (ST_TIME)
         self.init_switching_table()
+
+        # Forward firewall rules to other switches.
+
+        for rule in local_blocks:
+            tmp = Msg(0, 0, 0, 0, 0b11111111, 0, rule)
+            self.send_q.put((-1, rule))
+            print(f"FORWARDING RULE: \n {rule} \n")
+
         print(f"SWITCH CREATED: \n {self} \n")
 
 
@@ -52,10 +63,9 @@ class Switch(NetDevice):
                 continue
             in_port, in_msg = self.rcv_q.get()
 
-            # Calculate inbound tables
-
-            tmp_in = self.in_st[in_port]
-            tmp_out = self.out_st[self.ito[in_port]]
+            # Check to see if the message is a self send
+            if (in_port == -1):
+                self.cach_time = 0
 
             # Check to see if we have seen this message before
 
@@ -69,6 +79,11 @@ class Switch(NetDevice):
                 self.init_switching_table()
 
             else:
+
+                # Calculate inbound tables
+
+                tmp_in = self.in_st[in_port]
+                tmp_out = self.out_st[self.ito[in_port]]
 
                 # Add inbound connection to the switching
                 # tables
