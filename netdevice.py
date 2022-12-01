@@ -16,7 +16,7 @@ from msg import dumps, loads
 import threading as t
 
 SLEEP_TIME = 0.001 # How long to wait in sec between loops
-TCP_PORT_PREFIX = 550 + randint(0,100)
+TCP_PORT_PREFIX = 3000 + randint(0,100)
 
 # How long to wait on a conections
 
